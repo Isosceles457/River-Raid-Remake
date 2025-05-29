@@ -1,9 +1,7 @@
-// River Raid Remake básico con Phaser 3
 const config = {
   type: Phaser.AUTO,
   width: 480,
   height: 640,
-  parent: "game-container",
   physics: {
     default: "arcade",
     arcade: {
@@ -17,180 +15,184 @@ const config = {
   },
 };
 
-let player,
-  cursors,
-  river,
-  enemies,
-  fuels,
-  score = 0,
-  scoreText,
-  fuel = 100,
-  fuelText,
-  gameOver = false;
-
-const RIVER_WIDTH = 220;
-const PLAYER_SPEED = 200;
-const ENEMY_SPEED = 180;
-const FUEL_SPEED = 180;
-
 const game = new Phaser.Game(config);
 
+let background;
+let player;
+let enemies;
+let bullets;
+let lastFired = 0;
+let fuelGroup;
+let fuelLevel = 100;
+let fuelText;
+let score = 0;
+let scoreText;
+let isGameOver = false;
+
 function preload() {
-  // Sprites simples con gráficos generados
-  this.textures.generate("player", {
-    data: ["  2  ", " 222 ", "22222", " 222 ", "  2  "],
-    pixelWidth: 10,
-    palette: { 2: "#fff" },
-  });
-  this.textures.generate("enemy", {
-    data: ["  3  ", " 333 ", "33333", " 333 ", "  3  "],
-    pixelWidth: 10,
-    palette: { 3: "#f00" },
-  });
-  this.textures.generate("fuel", {
-    data: ["  4  ", " 444 ", "44444", " 444 ", "  4  "],
-    pixelWidth: 10,
-    palette: { 4: "#0f0" },
-  });
+  this.load.image("player", "assets/player1.png");
+  this.load.image("background", "assets/background.webp");
+  this.load.image("enemy", "assets/enemy.png");
+  this.load.image("fuel", "assets/fuel.png");
+  this.load.image("bullet", "assets/bullet.png");
 }
 
 function create() {
-  // Fondo del río
-  river = this.add.graphics();
-  drawRiver(this);
+  background = this.add
+    .tileSprite(0, 0, 480, 640, "background")
+    .setOrigin(0, 0);
 
-  // Jugador
-  player = this.physics.add.sprite(
-    config.width / 2,
-    config.height - 60,
-    "player"
-  );
+  player = this.physics.add.sprite(240, 550, "player");
   player.setCollideWorldBounds(true);
 
-  // Enemigos y fuel
+  this.cursors = this.input.keyboard.createCursorKeys();
+
+  // Enemigos
   enemies = this.physics.add.group();
-  fuels = this.physics.add.group();
 
-  // Controles
-  cursors = this.input.keyboard.createCursorKeys();
-
-  // Texto de puntuación y fuel
-  scoreText = this.add.text(10, 10, "Puntos: 0", {
-    fontSize: "20px",
-    fill: "#fff",
-  });
-  fuelText = this.add.text(350, 10, "Fuel: 100", {
-    fontSize: "20px",
-    fill: "#fff",
+  this.enemyTimer = this.time.addEvent({
+    delay: 1000,
+    callback: () => {
+      const x = Phaser.Math.Between(50, 430);
+      const enemy = this.physics.add.sprite(x, -10, "enemy").setScale(0.5);
+      enemies.add(enemy);
+    },
+    loop: true,
   });
 
-  // Colisiones
-  this.physics.add.overlap(player, enemies, hitEnemy, null, this);
-  this.physics.add.overlap(player, fuels, collectFuel, null, this);
+  // Balas
+  bullets = this.physics.add.group();
+
+  this.physics.add.overlap(
+    bullets,
+    enemies,
+    (bullet, enemy) => {
+      bullet.destroy();
+      enemy.destroy();
+      score += 10;
+      updateScoreText();
+    },
+    null,
+    this
+  );
+
+  // Combustible
+  fuelGroup = this.physics.add.group();
+
+  this.fuelTimer = this.time.addEvent({
+    delay: 3000,
+    callback: () => {
+      const x = Phaser.Math.Between(50, 430);
+      const fuel = this.physics.add.sprite(x, -30, "fuel");
+      fuelGroup.add(fuel);
+    },
+    loop: true,
+  });
+
+  // Colisión jugador - combustible
+  this.physics.add.overlap(
+    player,
+    fuelGroup,
+    (player, fuel) => {
+      fuel.destroy();
+      fuelLevel = Math.min(fuelLevel + 25, 100);
+      updateFuelText();
+    },
+    null,
+    this
+  );
+
+  // Colisión jugador - enemigo (muere)
+  this.physics.add.overlap(
+    player,
+    enemies,
+    () => {
+      gameOver.call(this, "YOU WERE HIT!");
+    },
+    null,
+    this
+  );
+
+  // UI
+  fuelText = this.add.text(10, 10, `Fuel: ${fuelLevel}`, {
+    font: "16px Arial",
+    fill: "#ffffff",
+  });
+
+  scoreText = this.add.text(360, 10, `Score: ${score}`, {
+    font: "16px Arial",
+    fill: "#ffffff",
+  });
 }
 
-function update() {
-  if (gameOver) return;
+function update(time, delta) {
+  if (isGameOver) return;
+
+  background.tilePositionY -= 2;
 
   // Movimiento jugador
   player.setVelocity(0);
-  if (
-    cursors.left.isDown &&
-    player.x > config.width / 2 - RIVER_WIDTH / 2 + 20
-  ) {
-    player.setVelocityX(-PLAYER_SPEED);
-  } else if (
-    cursors.right.isDown &&
-    player.x < config.width / 2 + RIVER_WIDTH / 2 - 20
-  ) {
-    player.setVelocityX(PLAYER_SPEED);
+  if (this.cursors.left.isDown) player.setVelocityX(-200);
+  else if (this.cursors.right.isDown) player.setVelocityX(200);
+  if (this.cursors.up.isDown) player.setVelocityY(-200);
+  else if (this.cursors.down.isDown) player.setVelocityY(200);
+
+  // Disparo
+  if (this.cursors.space?.isDown && time > lastFired + 300) {
+    const bullet = bullets.create(player.x, player.y - 20, "bullet");
+    bullet.setVelocityY(-300);
+    bullet.setCollideWorldBounds(false);
+    lastFired = time;
   }
 
-  // Fuel
-  fuel -= 0.05;
-  if (fuel <= 0) {
-    endGame(this, "¡Sin fuel!");
-  }
-  fuelText.setText("Fuel: " + Math.max(0, Math.floor(fuel)));
-
-  // Spawnear enemigos y fuel
-  if (Phaser.Math.Between(0, 100) < 2) {
-    spawnEnemy(this);
-  }
-  if (Phaser.Math.Between(0, 100) < 1) {
-    spawnFuel(this);
-  }
-
-  // Mover enemigos y fuel
-  enemies.children.iterate(function (child) {
-    if (child) {
-      child.y += (ENEMY_SPEED * this.game.loop.delta) / 1000;
-      if (child.y > config.height + 40) child.destroy();
+  // Movimiento enemigos
+  enemies.children.iterate((e) => {
+    if (e) {
+      e.y += 2;
+      if (e.y > 700) e.destroy();
     }
-  }, this);
-  fuels.children.iterate(function (child) {
-    if (child) {
-      child.y += (FUEL_SPEED * this.game.loop.delta) / 1000;
-      if (child.y > config.height + 40) child.destroy();
-    }
-  }, this);
-
-  // Puntos
-  score += 0.05;
-  scoreText.setText("Puntos: " + Math.floor(score));
-}
-
-function drawRiver(scene) {
-  river.clear();
-  river.fillStyle(0x0066ff, 1);
-  river.fillRect(
-    config.width / 2 - RIVER_WIDTH / 2,
-    0,
-    RIVER_WIDTH,
-    config.height
-  );
-  // Bordes
-  river.lineStyle(4, 0xffffff, 1);
-  river.strokeRect(
-    config.width / 2 - RIVER_WIDTH / 2,
-    0,
-    RIVER_WIDTH,
-    config.height
-  );
-}
-
-function spawnEnemy(scene) {
-  const x = Phaser.Math.Between(
-    config.width / 2 - RIVER_WIDTH / 2 + 20,
-    config.width / 2 + RIVER_WIDTH / 2 - 20
-  );
-  const enemy = enemies.create(x, -20, "enemy");
-  enemy.setImmovable(true);
-}
-
-function spawnFuel(scene) {
-  const x = Phaser.Math.Between(
-    config.width / 2 - RIVER_WIDTH / 2 + 20,
-    config.width / 2 + RIVER_WIDTH / 2 - 20
-  );
-  const fuelItem = fuels.create(x, -20, "fuel");
-  fuelItem.setImmovable(true);
-}
-
-function hitEnemy(player, enemy) {
-  endGame(this, "¡Colisión!");
-}
-
-function collectFuel(player, fuelItem) {
-  fuel = Math.min(100, fuel + 30);
-  fuelItem.destroy();
-}
-
-function endGame(scene, msg) {
-  gameOver = true;
-  scene.add.text(config.width / 2 - 80, config.height / 2, msg, {
-    fontSize: "32px",
-    fill: "#f00",
   });
-  scene.physics.pause();
+
+  // Movimiento fuel
+  fuelGroup.children.iterate((f) => {
+    if (f) {
+      f.y += 2;
+      if (f.y > 700) f.destroy();
+    }
+  });
+
+  // Combustible
+  fuelLevel -= 0.05;
+  if (fuelLevel <= 0) {
+    fuelLevel = 0;
+    gameOver.call(this, "OUT OF FUEL");
+  } else {
+    updateFuelText();
+  }
+}
+
+function updateFuelText() {
+  fuelText.setText(`Fuel: ${Math.floor(fuelLevel)}`);
+}
+
+function updateScoreText() {
+  scoreText.setText(`Score: ${score}`);
+}
+
+function gameOver(message) {
+  this.physics.pause();
+  isGameOver = true;
+  player.setTint(0xff0000);
+
+  // Cancelar timers
+  if (this.enemyTimer) this.enemyTimer.remove(false);
+  if (this.fuelTimer) this.fuelTimer.remove(false);
+
+  // Mostrar texto de game over
+  this.add
+    .text(240, 320, message, {
+      font: "28px Arial",
+      fill: "#ff4444",
+    })
+    .setOrigin(0.5);
 }
