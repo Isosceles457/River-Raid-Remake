@@ -4,21 +4,40 @@
 <head>
     <meta charset="UTF-8">
     <title>River Raid Remake</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
-    <style>
-        body {
-            margin: 0;
-        }
-
-        canvas {
-            display: block;
-            margin: auto;
-        }
-    </style>
+    <script src="./phaser.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <script type="module" src="main.js"></script>
+    <div id="landing">
+        <div class="landing-overlay"></div>
+        <div class="landing-content">
+            <div class="landing-header">
+                <h1 class="landing-title">River Raid Remake</h1>
+            </div>
+            <p class="landing-desc">
+                ¡Vuelve a surcar el río en este homenaje moderno al clásico de Atari!<br>
+                Disfruta gráficos renovados, controles mejorados y toda la emoción retro.<br>
+                <span class="landing-small">Hecho con Phaser 3 y mucho cariño.</span>
+            </p>
+            <button id="start-game-btn">Jugar ahora</button>
+        </div>
+    </div>
+    <div id="game-container" class="game-centered" style="display:none;">
+        <script type="module" src="main.js"></script>
+    </div>
+    <script>
+        // Solo mostrar landing en pantallas grandes
+        if (window.innerWidth < 700) {
+            document.getElementById('landing').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+        } else {
+            document.getElementById('start-game-btn').onclick = function () {
+                document.getElementById('landing').style.display = 'none';
+                document.getElementById('game-container').style.display = 'flex';
+            };
+        }
+    </script>
 </body>
 
 </html>

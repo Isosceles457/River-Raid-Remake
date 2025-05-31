@@ -1,15 +1,16 @@
-import MainMenu from './scenes/MainMenu.js';
-import GameScene from './scenes/GameScene.js';
-import MapSelect from './scenes/MapSelect.js';
+import MainMenu from "./scenes/MainMenu.js";
+import GameScene from "./scenes/GameScene.js";
+import MapSelect from "./scenes/MapSelect.js";
 
 const config = {
   type: Phaser.AUTO,
   width: 480,
   height: 640,
+  parent: "game-container", // <-- Esto asegura que el canvas se inserte aquí
   physics: {
     default: "arcade",
     arcade: {
-      debug: true, // Puedes poner en false si no quieres ver las hitbox
+      debug: false, // Puedes poner en false si no quieres ver las hitbox
     },
   },
   scene: [MainMenu, MapSelect, GameScene],
