@@ -1,3 +1,7 @@
+import MainMenu from './scenes/MainMenu.js';
+import GameScene from './scenes/GameScene.js';
+import MapSelect from './scenes/MapSelect.js';
+
 const config = {
   type: Phaser.AUTO,
   width: 480,
@@ -5,14 +9,10 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      debug: false,
+      debug: true, // Puedes poner en false si no quieres ver las hitbox
     },
   },
-  scene: {
-    preload,
-    create,
-    update,
-  },
+  scene: [MainMenu, MapSelect, GameScene],
 };
 
 const game = new Phaser.Game(config);
